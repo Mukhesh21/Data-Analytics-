@@ -1,12 +1,3 @@
-"""
-Bird Migration Intelligence Platform v4
-- No interactive play/reset buttons on charts — all render instantly
-- Scroll-triggered fly-in animations (Figma-style intersection observer)
-- Map: realistic coloured globe, click country → all individual bird names
-- Click any bird name → full detail panel with image, success/failure analysis
-- Bird images via Wikipedia / iNaturalist APIs
-- Deployable with gunicorn
-"""
 
 import pandas as pd
 import numpy as np
@@ -19,9 +10,6 @@ from datetime import datetime
 import warnings
 warnings.filterwarnings("ignore")
 
-# ══════════════════════════════════════════════════════════════
-# 1. DATA
-# ══════════════════════════════════════════════════════════════
 CSV_PATH = os.environ.get(
     "CSV_PATH",
    r"bird_migration.csv"
@@ -40,13 +28,10 @@ ALL_REGIONS  = sorted(df["Region"].unique())
 ALL_BIRDS    = sorted(df["Bird_Name"].unique())
 ALL_REASONS  = sorted(df["Interrupted_Reason"].dropna().unique())
 
-# Birds grouped by species for the map panel
 SPECIES_BIRDS = {sp: sorted(df[df["Species"] == sp]["Bird_Name"].unique())
                  for sp in ALL_SPECIES}
 
-# ══════════════════════════════════════════════════════════════
-# 2. GEO DATA
-# ══════════════════════════════════════════════════════════════
+
 CONTINENT_COUNTRIES = {
     "Africa":        ["Algeria","Angola","DR Congo","Egypt","Ethiopia","Ghana",
                       "Kenya","Morocco","Nigeria","South Africa","Sudan","Tanzania","Uganda","Zimbabwe"],
@@ -130,9 +115,6 @@ def get_wps(o, d):
     oc, dc = REGION_CENTRE[o], REGION_CENTRE[d]
     return [oc, ((oc[0]+dc[0])/2, (oc[1]+dc[1])/2), dc]
 
-# ══════════════════════════════════════════════════════════════
-# 3. SPECIES INFO
-# ══════════════════════════════════════════════════════════════
 SPECIES_INFO = {
     "Crane":   {"desc": "Cranes undertake some of the longest migrations on Earth, crossing mountain ranges and vast wetlands with powerful, sustained flight.",
                 "size": "100–176 cm wingspan", "diet": "Omnivore — grains, insects, vertebrates", "lifespan": "20–30 years"},
@@ -154,9 +136,6 @@ SPECIES_LABEL = {
     "Hawk":"Hawk", "Stork":"Stork", "Swallow":"Swallow", "Warbler":"Warbler"
 }
 
-# ══════════════════════════════════════════════════════════════
-# 4. COLOUR SYSTEM
-# ══════════════════════════════════════════════════════════════
 C = {
     "bg":      "#f0f4f8",
     "card":    "#ffffff",
@@ -186,9 +165,6 @@ BL = dict(
     yaxis=dict(gridcolor="#e2e8f0", zerolinecolor="#e2e8f0"),
 )
 
-# ══════════════════════════════════════════════════════════════
-# 5. CHART HELPERS — no play/reset, all instant
-# ══════════════════════════════════════════════════════════════
 def bar(cats, vals, colors=None, title="", orient="v",
         xtitle="", ytitle="", height=320, texts=None):
     n = len(cats)
@@ -230,10 +206,6 @@ def graph(figure, cls="fly-in", **kw):
         dcc.Graph(figure=figure, config={"displayModeBar": False}, **kw),
         className=cls
     )
-
-# ══════════════════════════════════════════════════════════════
-# 6. UI HELPERS
-# ══════════════════════════════════════════════════════════════
 def kpi(label, value, sub="", color=C["accent"]):
     return dbc.Card(dbc.CardBody([
         html.P(label, style={"color": C["muted"], "fontSize": "0.68rem",
@@ -293,9 +265,6 @@ def icard(icon, title, value, sub, color):
 def dds():
     return {"background": C["card2"], "color": C["text"], "fontSize": "0.82rem"}
 
-# ══════════════════════════════════════════════════════════════
-# 7. BIRD IMAGE FETCHER
-# ══════════════════════════════════════════════════════════════
 def fetch_img(bird_name: str, species: str) -> str | None:
     for name in [bird_name, f"{bird_name} bird", species + " bird"]:
         try:
@@ -345,9 +314,7 @@ def bird_img_el(bird_name: str, species: str):
               "padding": "20px", "display": "flex", "flexDirection": "column",
               "alignItems": "center"})
 
-# ══════════════════════════════════════════════════════════════
-# 8. BIRD DETAIL PANEL
-# ══════════════════════════════════════════════════════════════
+
 def bird_detail_panel(bird_name: str):
     bdf = df[df["Bird_Name"] == bird_name]
     if bdf.empty:
@@ -392,7 +359,6 @@ def bird_detail_panel(bird_name: str):
 
     return dbc.Card([
         dbc.CardBody([
-            # Header row: info + image
             dbc.Row([
                 dbc.Col([
                     html.H5(bird_name,
@@ -468,9 +434,6 @@ def bird_detail_panel(bird_name: str):
               "borderRadius": "14px", "marginTop": "16px",
               "boxShadow": "0 4px 30px rgba(0,0,0,0.4)"})
 
-# ══════════════════════════════════════════════════════════════
-# 9. GLOBE BUILDER (realistic colours) — FIXED VERSION
-# ══════════════════════════════════════════════════════════════
 def build_globe(continents=None, country=None, species_sel=None, status="all"):
     """
     FIXED: Now properly handles the country parameter to filter by specific country
@@ -501,24 +464,23 @@ def build_globe(continents=None, country=None, species_sel=None, status="all"):
                 opacity=0.35, showlegend=False, hoverinfo="skip"
             ))
 
-    # Country markers — FIXED: Only show countries in the filtered data's regions
     for country_name, coords in COUNTRY_COORDS.items():
         cont = ALL_COUNTRIES.get(country_name, "")
         
-        # Filter by continent if specified
+   
         if continents:
             cl = continents if isinstance(continents, list) else [continents]
             if cont not in cl:
                 continue
         
-        # FIX: Filter by country if specified — only show the selected country
+        
         if country:
             if country_name != country:
                 continue
-            # For selected country, use filtered data (fdf)
+           
             sub = fdf[fdf["Region"] == cont]
         else:
-            # For all countries, use full filtered data
+           
             sub = fdf[fdf["Region"] == cont]
         
         sr  = sub["Success"].mean() * 100 if len(sub) else 50
@@ -540,7 +502,7 @@ def build_globe(continents=None, country=None, species_sel=None, status="all"):
             )
         ))
 
-    # Legend traces
+ 
     fig.add_trace(go.Scattergeo(lat=[None], lon=[None], mode="markers",
                                  name="≥50% Success", marker=dict(color="#10b981", size=10)))
     fig.add_trace(go.Scattergeo(lat=[None], lon=[None], mode="markers",
@@ -570,11 +532,7 @@ def build_globe(continents=None, country=None, species_sel=None, status="all"):
     )
     return fig
 
-# ══════════════════════════════════════════════════════════════
-# 10. TAB CONTENT BUILDERS
-# ══════════════════════════════════════════════════════════════
 
-# ── DASHBOARD ──────────────────────────────────────────────
 def build_dashboard():
     total = len(df)
     succ  = int(df["Success"].sum())
@@ -589,7 +547,7 @@ def build_dashboard():
                           showarrow=False)]
     )
 
-    # Species × Region grouped bar
+    
     g = df.groupby(["Region", "Species"])["Success"].agg(["sum", "count"]).reset_index()
     g["pct"] = g["sum"] / g["count"] * 100
     fig_t5 = go.Figure()
@@ -608,13 +566,13 @@ def build_dashboard():
         legend=dict(font=dict(color=C["text"]))
     )
 
-    # Habitat pie
+  
     hab = df.groupby("Habitat")["Success"].agg(["sum", "count"]).reset_index()
     hab["pct"] = hab["sum"] / hab["count"] * 100
     fig_hab = pie(hab["Habitat"].tolist(), hab["pct"].tolist(),
                   title="Success Rate by Habitat (%)", height=280)
 
-    # Migration reason pie
+    
     mr = df.groupby("Migration_Reason")["Success"].agg(["sum", "count"]).reset_index()
     mr["pct"] = mr["sum"] / mr["count"] * 100
     fig_mr = pie(mr["Migration_Reason"].tolist(), mr["pct"].tolist(),
@@ -650,7 +608,6 @@ def build_dashboard():
     ], fluid=True, className="py-3")
 
 
-# ── MAP TAB ────────────────────────────────────────────────
 def build_map_tab():
     return dbc.Container([
         sec("", "Interactive Map — Click a Country to Explore Birds"),
@@ -885,9 +842,6 @@ def build_migration_status():
         html.Div(id="ms-results"),
     ], fluid=True, className="py-3")
 
-# ══════════════════════════════════════════════════════════════
-# 11. APP
-# ══════════════════════════════════════════════════════════════
 app = Dash(
     __name__,
     external_stylesheets=[
@@ -897,8 +851,7 @@ app = Dash(
     suppress_callback_exceptions=True,
     title="Bird Migration Intelligence",
 )
-server = app.server  # gunicorn entry point
-
+server = app.server 
 TABS = [
     ("dashboard",  "Dashboard"),
     ("map",        "Map & Explore"),
@@ -957,11 +910,6 @@ app.layout = html.Div([
     dcc.Store(id="active-tab", data="dashboard"),
 ])
 
-# ══════════════════════════════════════════════════════════════
-# 12. CALLBACKS
-# ══════════════════════════════════════════════════════════════
-
-# Tab routing
 @app.callback(
     Output("page-content", "children"),
     Output("active-tab", "data"),
@@ -1103,11 +1051,7 @@ def map_click(click_data):
               "height": "580px", "display": "flex", "flexDirection": "column"})
 
 
-# Individual bird click → detail panel below map
-# bird-btn callback defined later with pattern matching
 
-
-# Month analysis
 @app.callback(
     Output("month-country", "options"),
     Input("month-continent", "value"),
@@ -1387,8 +1331,7 @@ def ms_analyse(_, orig_cont, orig_country, dest_cont, dest_country, sp_filter):
                                        marker=dict(size=12, color=C["accent"],
                                                    symbol="star"),
                                        name=f"Origin: {origin_label}"))
-    
-    # FIX: Show destination marker at correct coordinates
+
     dest_label = dest_country if dest_country else dest_r
     fig_globe.add_trace(go.Scattergeo(lat=[dc[0]], lon=[dc[1]], mode="markers",
                                        marker=dict(size=12, color=C["accent3"],
@@ -1442,9 +1385,6 @@ def ms_analyse(_, orig_cont, orig_country, dest_cont, dest_country, sp_filter):
         ], className="g-2"),
     ])
 
-# ══════════════════════════════════════════════════════════════
-# 13. CSS + SCROLL-FLY-IN ANIMATION (Intersection Observer)
-# ══════════════════════════════════════════════════════════════
 app.index_string = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1592,9 +1532,6 @@ def bird_btn_click(n_clicks_list):
                 pass
     return html.Div()
 
-# ══════════════════════════════════════════════════════════════
-# 15. RUN
-# ══════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     port  = int(os.environ.get("PORT", 8050))
     debug = os.environ.get("DEBUG", "false").lower() == "true"
